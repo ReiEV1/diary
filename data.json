@@ -78,12 +78,23 @@
     {
      "id": "muokb2k9",
      "t": "note",
-     "text": "note",
-     "w": 280,
+     "text": "last time i talk about my parents",
+     "w": 194,
      "r": 3.2,
-     "x": 478,
-     "y": 148,
-     "z": 17
+     "x": 181,
+     "y": -49,
+     "z": 26
+    },
+    {
+     "id": "muokeedmege",
+     "t": "vid",
+     "file": "videos/muokeedmege.mp4",
+     "big": 0,
+     "w": 202,
+     "r": 4.2,
+     "x": -198,
+     "y": -48,
+     "z": 27
     }
    ]
   }
