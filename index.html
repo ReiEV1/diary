@@ -46,7 +46,7 @@ dialog button{background:#fff;color:#000;border:0;border-radius:12px;padding:5px
 @keyframes pageIn{from{translate:0 40px;opacity:0}}
 @keyframes gone{to{scale:0;opacity:0}}
 .item.new{animation:pop .55s cubic-bezier(.3,1.5,.5,1)}
-.item :is(img,video,.n){animation:bob var(--d,5s) ease-in-out var(--dl,0s) infinite}
+
 .item .n:focus{animation:none}
 .item:hover{scale:1.03}
 .item.drag{scale:1.08}
@@ -95,7 +95,7 @@ let S={days:[],trash:[],dirty:false}, cfg={}, z=10, busy=false, tm, cur=null, pe
 try{cfg=JSON.parse(localStorage.getItem(CF))||{}}catch{}
 const status=t=>$('#hud').textContent=t;
 const persist=()=>{try{localStorage.setItem(LS,JSON.stringify(S))}catch{status('browser storage full, add a sync token')}};
-function save(){S.dirty=true;persist();status(cfg.token?'unsaved…':'saved in this browser');later()}
+function save(){S.dirty=true;S.ts=Date.now();persist();status(cfg.token?'unsaved…':'saved in this browser');later()}
 const newDay=()=>({title:'day '+(S.days.length+1),text:'',items:[]});
 const fit=t=>{t.style.height='auto';t.style.height=Math.max(220,t.scrollHeight)+'px'};
 const blobs={};
@@ -229,7 +229,7 @@ document.onpaste=e=>addFiles([...(e.clipboardData?.files||[])]);
 
 /* GitHub sync */
 const gh=(path,method='GET',body)=>fetch(`https://api.github.com/repos/${cfg.repo}/contents/${path}${method=='GET'?'?ref='+(cfg.branch||'main'):''}`,
-  {method,headers:{Authorization:'Bearer '+cfg.token,Accept:'application/vnd.github+json'},body:body&&JSON.stringify({...body,branch:cfg.branch||'main'})});
+  {method,cache:'no-store',headers:{Authorization:'Bearer '+cfg.token,Accept:'application/vnd.github+json'},body:body&&JSON.stringify({...body,branch:cfg.branch||'main'})});
 const b64=s=>btoa(unescape(encodeURIComponent(s)));
 async function sha(p){const r=await gh(p);return r.ok?(await r.json()).sha:undefined}
 async function put(path,content,msg){
@@ -251,7 +251,7 @@ async function sync(){
       delete it.pend;vdb('del',it.id);delete blobs[it.id];
     }
     for(const f of [...S.trash]){const s=await sha(f);if(s)await gh(f,'DELETE',{message:'remove photo',sha:s});S.trash=S.trash.filter(t=>t!==f)}
-    await put('data.json',b64(JSON.stringify({days:S.days,frameBg:S.frameBg},null,1)),'update diary');
+    await put('data.json',b64(JSON.stringify({days:S.days,frameBg:S.frameBg,ts:S.ts},null,1)),'update diary');
     S.dirty=false;status('synced to GitHub');
   }catch(e){status('sync failed ('+e.message+'). Check repo, branch and token.')}
   busy=false;persist();
@@ -266,21 +266,21 @@ $('#cfgForm').onsubmit=()=>{
 /* boot */
 (async()=>{
   try{S={...S,...JSON.parse(localStorage.getItem(LS))}}catch{}
-  if(!S.dirty){
+  {
     try{
       let d;
       if(cfg.token&&cfg.repo){const r=await gh('data.json');if(r.ok)d=JSON.parse(decodeURIComponent(escape(atob((await r.json()).content.replace(/\n/g,'')))))}
       else{const r=await fetch('data.json',{cache:'no-store'});if(r.ok)d=await r.json()}
-      if(d&&d.days){S.days=d.days;if(d.frameBg)S.frameBg=d.frameBg}
+      if(d&&d.days){if(!S.days.length||(d.ts||0)>(S.ts||0)){S.days=d.days;S.ts=d.ts||0;if(d.frameBg)S.frameBg=d.frameBg;S.dirty=false}else if((S.ts||0)>(d.ts||0))S.dirty=true;if(S.dirty)later()}
     }catch{}
   }
   S.days=(S.days||[]).map(d=>({title:d.title||'day',text:d.text||'',items:d.items||[],bg:d.bg}));
-  if(!S.days.length)S.days.push(newDay());
+  z=Math.max(z,...S.days.flatMap(d=>(d.items||[]).map(i=>i.z||0)));if(!S.days.length)S.days.push(newDay());
   render('all');
   status(cfg.token?'connected to '+cfg.repo:'not synced yet: open sync settings');
 })();
 addEventListener('pointermove',e=>{const t=$('#spot').style;t.setProperty('--mx',e.clientX+'px');t.setProperty('--my',e.clientY+'px')});
-addEventListener('resize',()=>S.days.forEach(d=>{const pg=pageOf(d);d.items.forEach(it=>clamp(pg,it))}));
+
 </script>
 </body>
 </html>
